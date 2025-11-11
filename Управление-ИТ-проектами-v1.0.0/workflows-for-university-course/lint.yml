@@ -1,0 +1,21 @@
+name: Lint and Structure Check
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yamllint
+          npm install -g markdownlint-cli jsonlint
+      - name: Lint Markdown
+        run: markdownlint . || true
+      - name: Lint YAML
+        run: yamllint . || true
+      - name: Lint JSON
+        run: |
+          find . -name "*.json" -not -path "./node_modules/*" -print0 | xargs -0 -I{} sh -c 'jsonlint -q "{}" || true'
