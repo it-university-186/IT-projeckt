@@ -1,1 +1,50 @@
+name: Quiz Auto Check
 
+on:
+  push:
+    paths:
+      - 'students/**/quiz_*answers.md'
+  pull_request:
+    paths:
+      - 'students/**/quiz_*answers.md'
+
+permissions:
+  contents: write
+
+jobs:
+  quiz-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Проверка тестов
+        run: |
+          mkdir -p grades
+          echo "🔍 Проверяем тестовые ответы..."
+          
+          for quiz in $(ls tests/quiz_*.md); do
+            quiz_name=$(basename $quiz)
+            echo "Проверяю $quiz_name"
+            
+            for answer in $(find students -name "${quiz_name/quiz_/quiz_*answers.md}" 2>/dev/null); do
+              correct=$(grep -c "✅" "$answer" || true)
+              total=$(grep -c "^[0-9]" "$quiz" || true)
+              echo "$(date +'%Y-%m-%d'),${answer},${correct}/${total}" >> grades/quiz_results.csv
+              echo "✅ $answer — $correct из $total"
+            done
+          done
+
+      - name: Обновление общего отчёта summary.md
+        run: |
+          echo "# Итоги тестов студентов" > grades/summary.md
+          echo "" >> grades/summary.md
+          echo "| Дата | Файл | Результат |" >> grades/summary.md
+          echo "|------|-------|------------|" >> grades/summary.md
+          cat grades/quiz_results.csv | while IFS=, read -r date file result; do
+            echo "| $date | $file | $result |" >> grades/summary.md
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add grades/summary.md
+          git commit -m "update summary [skip ci]" || echo "No changes"
+          git push
