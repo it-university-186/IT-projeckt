@@ -1,0 +1,28 @@
+name: Quiz Auto Check
+
+on:
+  pull_request:
+    paths:
+      - 'students/**/quiz_*answers.md'
+
+permissions:
+  contents: write
+
+jobs:
+  quiz-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Проверка тестов
+        run: |
+          mkdir -p grades
+          echo "🔍 Проверяем тестовые ответы..."
+          for quiz in $(ls tests/quiz_*.md); do
+            quiz_name=$(basename $quiz)
+            echo "Проверяю $quiz_name"
+            for answer in $(find students -name "${quiz_name/quiz_/quiz_*answers.md}" 2>/dev/null); do
+              correct=$(grep -c "✅" "$answer" || true)
+              total=$(grep -c "^[0-9]" "$quiz" || true)
+              echo "$(date +'%Y-%m-%d'),${answer},${correct}/${total}" >> grades/quiz_results.csv
+              echo "✅ $answer — $correct из $total"
+            done
