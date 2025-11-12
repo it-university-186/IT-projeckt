@@ -1,0 +1,63 @@
+name: Quiz Auto Check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  quiz-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Проверка тестов
+        run: |
+          mkdir -p grades
+          echo "🔍 Проверяем тестовые ответы..."
+
+          found_any=false
+
+          for quiz in $(ls tests/quiz_*.md 2>/dev/null || true); do
+            quiz_name=$(basename "$quiz")
+            echo "🧩 Проверяю $quiz_name"
+
+            for answer in $(find students -type f -name "${quiz_name/quiz_/quiz_*answers.md}" 2>/dev/null); do
+              found_any=true
+              correct=$(grep -c "✅" "$answer" || true)
+              total=$(grep -c "^[0-9]" "$quiz" || true)
+              if [ "$total" -eq 0 ]; then total=3; fi
+              echo "$(date +'%Y-%m-%d'),${answer},${correct}/${total}" >> grades/quiz_results.csv
+              echo "✅ $answer — $correct из $total"
+              if [ "$correct" -eq 0 ]; then
+                echo "⚠️ В файле $answer нет отмеченных ответов (✅)"
+              fi
+            done
+          done
+
+          if [ "$found_any" = false ]; then
+            echo "⚠️ Не найдено ни одного файла с ответами студентов."
+          fi
+
+      - name: Формирование сводного отчёта summary.md
+        run: |
+          echo "# Итоги тестов студентов" > grades/summary.md
+          echo "" >> grades/summary.md
+          echo "| Дата | Файл | Результат |" >> grades/summary.md
+          echo "|------|------|-----------|" >> grades/summary.md
+          if [ -f grades/quiz_results.csv ]; then
+            cat grades/quiz_results.csv | while IFS=, read -r date file result; do
+              echo "| $date | $file | $result |"
+            done >> grades/summary.md
+          else
+            echo "| – | Нет данных | – |" >> grades/summary.md
+          fi
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add grades/summary.md grades/quiz_results.csv || true
+          git commit -m "update quiz summary [skip ci]" || echo "Нет изменений"
+          git push || true
