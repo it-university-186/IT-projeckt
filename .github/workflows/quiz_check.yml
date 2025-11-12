@@ -1,10 +1,9 @@
 name: Quiz Auto Check
-
 on:
-  push:
-    paths:
+ push:
+   paths:
       - 'students/**/quiz_*answers.md'
-  pull_request:
+      pull_request:
     paths:
       - 'students/**/quiz_*answers.md'
 
