@@ -25,7 +25,7 @@ jobs:
             quiz_name=$(basename "$quiz")
             echo "🧩 Проверяю $quiz_name"
 
-            for answer in $(find students -type f -name "${quiz_name/quiz_/quiz_*answers.md}" 2>/dev/null); do
+            for answer in $(find students -type f -iname "quiz_*answers.md" 2>/dev/null); do
               found_any=true
               correct=$(grep -c "✅" "$answer" || true)
               total=$(grep -c "^[0-9]" "$quiz" || true)
